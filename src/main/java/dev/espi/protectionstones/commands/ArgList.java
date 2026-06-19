@@ -19,6 +19,7 @@ import dev.espi.protectionstones.PSL;
 import dev.espi.protectionstones.PSPlayer;
 import dev.espi.protectionstones.PSRegion;
 import dev.espi.protectionstones.ProtectionStones;
+import dev.espi.protectionstones.crosserver.PSCrossServer;
 import dev.espi.protectionstones.utils.UUIDCache;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -108,6 +109,18 @@ public class ArgList implements PSCommandArg {
                     memberOf.add(ChatColor.GRAY + "> " + ChatColor.AQUA + r.getId());
                 } else {
                     memberOf.add(ChatColor.GRAY + "> " + ChatColor.AQUA + r.getName() + " (" + r.getId() + ")");
+                }
+            }
+        }
+
+        // append regions the player has on other servers of the network
+        if (ProtectionStones.crossServerEnabled) {
+            for (PSCrossServer.NetworkRegion nr : PSCrossServer.getNetworkRegions(pUUID)) {
+                String line = ChatColor.GRAY + "> " + ChatColor.AQUA + nr.displayName() + ChatColor.DARK_GRAY + " [" + nr.serverId() + "]";
+                if (nr.owner()) {
+                    ownerOf.add(line);
+                } else if (nr.member()) {
+                    memberOf.add(line);
                 }
             }
         }

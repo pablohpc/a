@@ -9,7 +9,8 @@
     <url>https://github.com/espidev/ProtectionStones</url>
 
     <properties>
-        <java.version>1.21</java.version>
+        <java.version>26</java.version>
+        <maven.compiler.release>26</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -86,11 +87,10 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.1</version>
+                <version>3.14.0</version>
                 <configuration>
 
-                    <source>16</source>
-                    <target>16</target>
+                    <release>26</release>
                     <encoding>${project.build.sourceEncoding}</encoding>
 
                 </configuration>
@@ -107,7 +107,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.3.0</version>
+                <version>3.6.0</version>
                 <configuration>
                     <minimizeJar>true</minimizeJar>
                     <relocations>
@@ -130,7 +130,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
-                <version>3.2.1</version>
+                <version>3.3.1</version>
                 <executions>
                     <execution>
                         <id>attach-sources</id>
@@ -144,7 +144,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.2.0</version>
+                <version>3.11.2</version>
                 <executions>
                     <execution>
                         <id>attach-javadocs</id>
@@ -198,6 +198,16 @@
     </repositories>
 
     <dependencies>
+        <!-- FancyMonolith core: provides the cross-server infrastructure (Redis messaging, CoreAPI).
+             Build it first with `gradlew :core:publishToMavenLocal` in the FancyMonolith project so it
+             is available in the local Maven repository. It is supplied at runtime by the host plugin
+             (FancySurvival), so it is scoped as provided and is NOT shaded into ProtectionStones. -->
+        <dependency>
+            <groupId>dev.ephemeral.fancy</groupId>
+            <artifactId>core</artifactId>
+            <version>0.1.0-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>org.bstats</groupId>
             <artifactId>bstats-bukkit</artifactId>

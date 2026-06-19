@@ -16,6 +16,7 @@
 package dev.espi.protectionstones.commands;
 
 import dev.espi.protectionstones.*;
+import dev.espi.protectionstones.crosserver.PSCrossServer;
 import dev.espi.protectionstones.utils.ChatUtil;
 import dev.espi.protectionstones.utils.UUIDCache;
 import org.bukkit.Bukkit;
@@ -71,6 +72,11 @@ public class ArgTp implements PSCommandArg {
                 List<PSRegion> regions = ProtectionStones.getPSRegions(p.getWorld(), args[1]);
 
                 if (regions.isEmpty()) {
+                    // region may live on another server on the network
+                    if (ProtectionStones.crossServerEnabled
+                            && dev.espi.protectionstones.crosserver.PSCrossServer.attemptCrossServerTeleport(p, args[1], false)) {
+                        return;
+                    }
                     PSL.msg(s, PSL.REGION_DOES_NOT_EXIST.msg());
                     return;
                 }
@@ -102,20 +108,29 @@ public class ArgTp implements PSCommandArg {
             // run region search asynchronously to avoid blocking server thread
             Bukkit.getScheduler().runTaskAsynchronously(ProtectionStones.getInstance(), () -> {
                 List<PSRegion> regions = PSPlayer.fromUUID(tpUuid).getPSRegionsCrossWorld(p.getWorld(), false);
+                // include the player's regions hosted on other servers, numbered after the local ones
+                List<PSCrossServer.NetworkRegion> remote = ProtectionStones.crossServerEnabled
+                        ? PSCrossServer.getNetworkRegions(tpUuid).stream().filter(PSCrossServer.NetworkRegion::owner).toList()
+                        : Collections.emptyList();
+                int total = regions.size() + remote.size();
 
                 // check if region was found
-                if (regions.isEmpty()) {
+                if (total == 0) {
                     PSL.msg(p, PSL.REGION_NOT_FOUND_FOR_PLAYER.msg()
                             .replace("%player%", tpName));
                     return;
-                } else if (regionNumber > regions.size()) {
+                } else if (regionNumber > total) {
                     PSL.msg(p, PSL.ONLY_HAS_REGIONS.msg()
                             .replace("%player%", tpName)
-                            .replace("%num%", "" + regions.size()));
+                            .replace("%num%", "" + total));
                     return;
                 }
 
-                teleportPlayer(p, regions.get(regionNumber - 1));
+                if (regionNumber <= regions.size()) {
+                    teleportPlayer(p, regions.get(regionNumber - 1));
+                } else {
+                    PSCrossServer.teleportTo(p, remote.get(regionNumber - regions.size() - 1));
+                }
             });
         }
 

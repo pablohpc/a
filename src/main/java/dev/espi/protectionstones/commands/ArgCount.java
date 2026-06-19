@@ -19,6 +19,7 @@ import dev.espi.protectionstones.PSGroupRegion;
 import dev.espi.protectionstones.PSL;
 import dev.espi.protectionstones.PSPlayer;
 import dev.espi.protectionstones.ProtectionStones;
+import dev.espi.protectionstones.crosserver.PSCrossServer;
 import dev.espi.protectionstones.utils.UUIDCache;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -78,6 +79,9 @@ public class ArgCount implements PSCommandArg {
                 }
 
                 count = countRegionsOfPlayer(p.getUniqueId(), p.getWorld());
+                if (ProtectionStones.crossServerEnabled) {
+                    count[0] += PSCrossServer.getNetworkRegions(p.getUniqueId()).size();
+                }
                 PSL.msg(p, PSL.PERSONAL_REGION_COUNT.msg().replace("%num%", "" + count[0]));
                 if (count[1] != 0) {
                     PSL.msg(p, PSL.PERSONAL_REGION_COUNT_MERGED.msg().replace("%num%", ""+count[1]));
@@ -96,6 +100,9 @@ public class ArgCount implements PSCommandArg {
 
                 UUID countUuid = UUIDCache.getUUIDFromName(args[1]);
                 count = countRegionsOfPlayer(countUuid, p.getWorld());
+                if (ProtectionStones.crossServerEnabled) {
+                    count[0] += PSCrossServer.getNetworkRegions(countUuid).size();
+                }
 
                 PSL.msg(p, PSL.OTHER_REGION_COUNT.msg()
                         .replace("%player%", UUIDCache.getNameFromUUID(countUuid))

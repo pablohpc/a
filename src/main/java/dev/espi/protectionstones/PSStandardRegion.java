@@ -19,6 +19,7 @@ import com.sk89q.worldedit.math.BlockVector2;
 import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.managers.RemovalStrategy;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
+import dev.espi.protectionstones.crosserver.PSCrossServer;
 import dev.espi.protectionstones.event.PSRemoveEvent;
 import dev.espi.protectionstones.utils.MiscUtil;
 import dev.espi.protectionstones.utils.Objs;
@@ -49,6 +50,13 @@ public class PSStandardRegion extends PSRegion {
 
     // ~~~~~~~~~~~ instance ~~~~~~~~~~~~~~~~
 
+    // broadcast this region's current state to the rest of the network (no-op without cross-server support)
+    private void syncCrossServer() {
+        if (ProtectionStones.crossServerEnabled) {
+            PSCrossServer.onRegionChanged(this);
+        }
+    }
+
     @Override
     public String getId() {
         return wgregion.getId();
@@ -77,6 +85,7 @@ public class PSStandardRegion extends PSRegion {
             }
         }
         wgregion.setFlag(FlagHandler.PS_NAME, name);
+        syncCrossServer();
     }
 
     @Override
@@ -102,11 +111,13 @@ public class PSStandardRegion extends PSRegion {
     @Override
     public void setHome(double blockX, double blockY, double blockZ) {
         wgregion.setFlag(FlagHandler.PS_HOME, blockX + " " + blockY + " " + blockZ);
+        syncCrossServer();
     }
 
     @Override
     public void setHome(double blockX, double blockY, double blockZ, float yaw, float pitch) {
         wgregion.setFlag(FlagHandler.PS_HOME, blockX + " " + blockY + " " + blockZ + " " + yaw + " " + pitch);
+        syncCrossServer();
     }
 
     @Override
@@ -404,6 +415,7 @@ public class PSStandardRegion extends PSRegion {
     public void setType(PSProtectBlock type) {
         super.setType(type);
         getWGRegion().setFlag(FlagHandler.PS_BLOCK_MATERIAL, type.type);
+        syncCrossServer();
     }
 
     @Override
@@ -430,12 +442,14 @@ public class PSStandardRegion extends PSRegion {
     public void addOwner(UUID uuid) {
         if (uuid == null) return;
         wgregion.getOwners().addPlayer(uuid);
+        syncCrossServer();
     }
 
     @Override
     public void addMember(UUID uuid) {
         if (uuid == null) return;
         wgregion.getMembers().addPlayer(uuid);
+        syncCrossServer();
     }
 
     @Override
@@ -463,6 +477,7 @@ public class PSStandardRegion extends PSRegion {
         }
         if (wgregion.getOwners().contains(uuid))
             wgregion.getOwners().removePlayer(uuid);
+        syncCrossServer();
     }
 
     @Override
@@ -470,6 +485,7 @@ public class PSStandardRegion extends PSRegion {
         if (uuid == null) return;
         if (wgregion.getMembers().contains(uuid))
             wgregion.getMembers().removePlayer(uuid);
+        syncCrossServer();
     }
 
     @Override
@@ -522,6 +538,11 @@ public class PSStandardRegion extends PSRegion {
         // remove region from WorldGuard
         // specify UNSET_PARENT_IN_CHILDREN removal strategy so that region children don't get deleted
         rgmanager.removeRegion(wgregion.getId(), RemovalStrategy.UNSET_PARENT_IN_CHILDREN);
+
+        // propagate the deletion to the rest of the network
+        if (ProtectionStones.crossServerEnabled) {
+            PSCrossServer.onRegionDeleted(getWorld(), wgregion.getId());
+        }
 
         return true;
     }

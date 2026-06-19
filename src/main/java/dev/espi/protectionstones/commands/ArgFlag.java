@@ -401,6 +401,11 @@ public class ArgFlag implements PSCommandArg {
                 PSL.msg(p, PSL.FLAG_SET.msg().replace("%flag%", flagName));
             }
 
+            // propagate the flag change to the rest of the network
+            if (ProtectionStones.crossServerEnabled) {
+                dev.espi.protectionstones.crosserver.PSCrossServer.onRegionChanged(r);
+            }
+
         } catch (InvalidFlagFormat invalidFlagFormat) {
             //invalidFlagFormat.printStackTrace();
             PSL.msg(p, PSL.FLAG_NOT_SET.msg().replace("%flag%", flagName));

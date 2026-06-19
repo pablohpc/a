@@ -283,6 +283,12 @@ public class BlockHandler {
             region.setFlag(FlagHandler.PS_TAX_AUTOPAYER, p.getUniqueId().toString());
         }
 
+        // propagate the new region to the rest of the network
+        if (ProtectionStones.crossServerEnabled) {
+            PSRegion created = PSRegion.fromWGRegion(p.getWorld(), region);
+            if (created != null) dev.espi.protectionstones.crosserver.PSCrossServer.onRegionChanged(created);
+        }
+
         // show merge menu
         if (ProtectionStones.getInstance().getConfigOptions().allowMergingRegions && blockOptions.allowMerging && p.hasPermission("protectionstones.merge")) {
             PSRegion r = PSRegion.fromWGRegion(p.getWorld(), region);

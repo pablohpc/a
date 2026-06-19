@@ -22,6 +22,8 @@ import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import dev.espi.protectionstones.commands.ArgHelp;
 import dev.espi.protectionstones.commands.PSCommandArg;
+import dev.espi.protectionstones.crosserver.CrossServerListener;
+import dev.espi.protectionstones.crosserver.PSCrossServer;
 import dev.espi.protectionstones.placeholders.PSPlaceholderExpansion;
 import dev.espi.protectionstones.utils.BlockUtil;
 import dev.espi.protectionstones.utils.RecipeUtil;
@@ -79,7 +81,10 @@ public class ProtectionStones extends JavaPlugin {
 
     // ps alias to id cache
     // <world-name, <alias, [ids]>>
-    static HashMap<UUID, HashMap<String, ArrayList<String>>> regionNameToID = new HashMap<>();
+    public static HashMap<UUID, HashMap<String, ArrayList<String>>> regionNameToID = new HashMap<>();
+
+    // whether FancyCore-backed cross-server support is active (see dev.espi.protectionstones.crosserver)
+    public static volatile boolean crossServerEnabled = false;
 
     // vault economy integration
     private boolean vaultSupportEnabled = false;
@@ -657,6 +662,23 @@ public class ProtectionStones extends JavaPlugin {
 
         if (configOptions.regionNegativeMinMaxUpdated == null || !configOptions.regionNegativeMinMaxUpdated)
             LegacyUpgrade.upgradeRegionsWithNegativeYValues();
+
+        // cross-server integration: reuse the FancyCore instance started by the host plugin (FancySurvival)
+        // to keep regions in sync and route teleports across the network. Disabled gracefully if FancyCore
+        // is not present on this server.
+        try {
+            PSCrossServer.init();
+            if (PSCrossServer.isEnabled()) {
+                crossServerEnabled = true;
+                getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
+                getServer().getPluginManager().registerEvents(new CrossServerListener(), this);
+                getLogger().info("Cross-server support enabled via FancyCore (server id: " + PSCrossServer.serverId() + ").");
+            } else {
+                getLogger().info("FancyCore detected but not initialized; cross-server support disabled.");
+            }
+        } catch (Throwable t) {
+            getLogger().info("FancyCore not present; ProtectionStones is running in single-server mode.");
+        }
 
         getLogger().info(ChatColor.WHITE + "ProtectionStones has successfully started!");
     }

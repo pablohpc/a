@@ -16,6 +16,7 @@
 package dev.espi.protectionstones.commands;
 
 import dev.espi.protectionstones.*;
+import dev.espi.protectionstones.crosserver.PSCrossServer;
 import dev.espi.protectionstones.utils.ChatUtil;
 import dev.espi.protectionstones.utils.MiscUtil;
 import dev.espi.protectionstones.utils.TextGUI;
@@ -92,7 +93,17 @@ public class ArgHome implements PSCommandArg {
 
     private static final int GUI_SIZE = 17;
 
-    private void openHomeGUI(PSPlayer psp, List<PSRegion> homes, int page) {
+    // regions on other servers that the player can teleport home to
+    private static List<PSCrossServer.NetworkRegion> getRemoteHomes(Player p) {
+        if (!ProtectionStones.crossServerEnabled) return Collections.emptyList();
+        boolean allowMembers = ProtectionStones.getInstance().getConfigOptions().allowHomeTeleportForMembers;
+        return PSCrossServer.getNetworkRegions(p.getUniqueId()).stream()
+                .filter(r -> r.home() != null && (r.owner() || (allowMembers && r.member())))
+                .toList();
+    }
+
+    private void openHomeGUI(PSPlayer psp, List<PSRegion> homes, List<PSCrossServer.NetworkRegion> remoteHomes, int page) {
+        String baseCommand = ProtectionStones.getInstance().getConfigOptions().base_command;
         List<TextComponent> entries = new ArrayList<>();
         for (PSRegion r : homes) {
             String msg;
@@ -104,10 +115,19 @@ public class ArgHome implements PSCommandArg {
             TextComponent tc = new TextComponent(msg);
             tc.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder(PSL.HOME_CLICK_TO_TP.msg()).create()));
             if (r.getName() == null) {
-                tc.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/" + ProtectionStones.getInstance().getConfigOptions().base_command + " home " + r.getId()));
+                tc.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/" + baseCommand + " home " + r.getId()));
             } else {
-                tc.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/" + ProtectionStones.getInstance().getConfigOptions().base_command + " home " + r.getName()));
+                tc.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/" + baseCommand + " home " + r.getName()));
             }
+            entries.add(tc);
+        }
+        // append homes hosted on other servers; clicking re-runs /ps home, which routes cross-server
+        for (PSCrossServer.NetworkRegion nr : remoteHomes) {
+            String label = nr.name() == null ? nr.id() : nr.name() + " (" + nr.id() + ")";
+            TextComponent tc = new TextComponent(ChatColor.GRAY + "> " + ChatColor.AQUA + label + ChatColor.DARK_GRAY + " [" + nr.serverId() + "]");
+            tc.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder(PSL.HOME_CLICK_TO_TP.msg()).create()));
+            String arg = nr.name() == null ? nr.id() : nr.name();
+            tc.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/" + baseCommand + " home " + arg));
             entries.add(tc);
         }
 
@@ -133,10 +153,15 @@ public class ArgHome implements PSCommandArg {
             if (args.length == 1) {
                 // just "/ps home"
                 List<PSRegion> regions = psp.getHomes(p.getWorld());
-                if (regions.size() == 1) { // teleport to home if there is only one home
-                    ArgTp.teleportPlayer(p, regions.get(0));
+                List<PSCrossServer.NetworkRegion> remoteHomes = getRemoteHomes(p);
+                if (regions.size() + remoteHomes.size() == 1) { // teleport to home if there is only one home
+                    if (!regions.isEmpty()) {
+                        ArgTp.teleportPlayer(p, regions.get(0));
+                    } else {
+                        PSCrossServer.teleportTo(p, remoteHomes.get(0));
+                    }
                 } else { // otherwise, open the GUI
-                    openHomeGUI(psp, regions, (flags.get("-p") == null || !MiscUtil.isValidInteger(flags.get("-p")) ? 0 : Integer.parseInt(flags.get("-p")) - 1));
+                    openHomeGUI(psp, regions, remoteHomes, (flags.get("-p") == null || !MiscUtil.isValidInteger(flags.get("-p")) ? 0 : Integer.parseInt(flags.get("-p")) - 1));
                 }
             } else {// /ps home [id]
                 // get regions from the query
@@ -148,6 +173,11 @@ public class ArgHome implements PSCommandArg {
                         .collect(Collectors.toList());
 
                 if (regions.isEmpty()) {
+                    // the region (and the player's membership in it) may live on another server
+                    if (ProtectionStones.crossServerEnabled
+                            && dev.espi.protectionstones.crosserver.PSCrossServer.attemptCrossServerTeleport(p, query, true)) {
+                        return;
+                    }
                     PSL.msg(s, PSL.REGION_DOES_NOT_EXIST.msg());
                     return;
                 }
